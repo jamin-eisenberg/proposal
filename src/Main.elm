@@ -128,7 +128,7 @@ update msg model =
                     Debug.log "" <| "showing error: " ++ error
 
                 ( tray, tmesg ) =
-                    Toast.add model.tray (Toast.expireOnBlur 500000 error)
+                    Toast.add model.tray (Toast.expireOnBlur 5000 error)
             in
             ( { model | tray = tray }, Cmd.map ToastMsg tmesg )
 
