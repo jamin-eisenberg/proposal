@@ -94,6 +94,17 @@ view model =
                 ]
 
 
+incOrEnd : Maybe Int -> Maybe Int
+incOrEnd step =
+    let
+        incremented =
+            Maybe.map ((+) 1) step
+    in
+    incremented
+        |> Maybe.andThen stepNfcTag
+        |> Maybe.andThen (always incremented)
+
+
 update : Msg -> Model -> ( Model, Cmd msg )
 update msg model =
     case model.step of
@@ -111,7 +122,7 @@ update msg model =
                         stepNfcTag step
                             == Just nfcTag
                     then
-                        ( { model | step = Maybe.map ((+) 1) model.step }, Cmd.none )
+                        ( { model | step = incOrEnd model.step }, Cmd.none )
 
                     else
                         ( model, Cmd.none )
@@ -125,7 +136,7 @@ update msg model =
 
                 ManualOverride ->
                     if model.pendingPassword == manualOverridePassword then
-                        ( { model | step = Just <| step + 1, pendingPassword = "" }, Cmd.none )
+                        ( { model | step = incOrEnd model.step, pendingPassword = "" }, Cmd.none )
 
                     else
                         ( { model | pendingPassword = "" }, Cmd.none )
