@@ -1,18 +1,20 @@
 port module Main exposing (main)
 
 import Browser
-import Html exposing (text)
+import Html exposing (img, text)
+import Html.Attributes exposing (src, style, width)
 import String
 import Time
 
 
 type alias Model =
-    {}
+    { step : Int }
 
 
 type Msg
     = ScanSucceeded NfcTag
     | ScanFailed String -- reason
+    | ManualOverride
 
 
 type NfcTag
@@ -33,13 +35,23 @@ scanSucceededSub =
                 _ =
                     Debug.log <| "scan retrieved " ++ String.fromInt id
             in
-            case id of
-                0 ->
-                    ScanSucceeded Bench
+            case stepNfcTag id of
+                Just tag ->
+                    ScanSucceeded tag
 
                 _ ->
                     ScanFailed "Unknown tag scanned."
         )
+
+
+stepNfcTag : Int -> Maybe NfcTag
+stepNfcTag step =
+    case step of
+        0 ->
+            Just Bench
+
+        _ ->
+            Nothing
 
 
 scanFailedSub : Sub Msg
@@ -58,11 +70,11 @@ main =
 
 
 init _ =
-    ( {}, Cmd.none )
+    ( { step = 0 }, Cmd.none )
 
 
 view model =
-    text "hi"
+    img [ src <| "images/" ++ String.fromInt model.step ++ ".png", style "width" "100%" ] []
 
 
 update msg model =
@@ -72,11 +84,18 @@ update msg model =
                 _ =
                     Debug.log "" nfcTag
             in
-            ( {}, Cmd.none )
+            if stepNfcTag model.step == Just nfcTag then
+                ( { model | step = model.step + 1 }, Cmd.none )
+
+            else
+                ( model, Cmd.none )
 
         ScanFailed reason ->
             let
                 _ =
                     Debug.log "" reason
             in
-            ( {}, Cmd.none )
+            ( model, Cmd.none )
+
+        ManualOverride ->
+            ( { model | step = model.step + 1 }, Cmd.none )
