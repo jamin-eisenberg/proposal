@@ -24,29 +24,26 @@
         node: document.getElementById('elm-app-is-loaded-here')
     });
 
-    app.ports.scan.subscribe(function (_) {
-        const ndef = new NDEFReader();
-        ndef
-            .scan()
-            .then(() => {
-                console.log("Scan started successfully.");
-                ndef.onreadingerror = (event) => {
-                    app.ports.scanFailed.send("?????");
-                    console.log(
-                        "Error! Cannot read data from the NFC tag. Try a different one?",
-                    );
-                    console.log(event);
-                };
-                ndef.onreading = (event) => {
-                    app.ports.scanSucceeded.send(0);
-                    console.log("NDEF message read.");
-                    console.log(event);
-                };
-            })
-            .catch((error) => {
-                console.log(`Error! Scan failed to start: ${error}.`);
-            });
-    });
+    await navigator.permissions.query({ name: "nfc" });
+    const ndef = new NDEFReader();
+    ndef
+        .scan()
+        .then(() => {
+            console.log("Scan started successfully.");
+            ndef.onreadingerror = (event) => {
+                app.ports.scanFailed.send("Cannot read data from the NFC tag. Try again?");
+            };
+            ndef.onreading = (event) => {
+                app.ports.scanSucceeded.send(0);
+                console.log("NDEF message read.");
+                console.log(event);
+            };
+        })
+        .catch((error) => {
+            console.log(`Error! Scan failed to start: ${error}.`);
+            app.ports.scanFailed.send(`Scan failed to start: ${error}.`);
+        });
+
 </script>
 <script src=" https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"

@@ -11,16 +11,12 @@ type alias Model =
 
 
 type Msg
-    = StartScan
-    | ScanSucceeded NfcTag
+    = ScanSucceeded NfcTag
     | ScanFailed String -- reason
 
 
 type NfcTag
     = Bench
-
-
-port scan : () -> Cmd msg
 
 
 port scanSucceeded : (Int -> msg) -> Sub msg
@@ -57,7 +53,7 @@ main =
         { init = init
         , view = view
         , update = update
-        , subscriptions = \_ -> Sub.batch [ scanSucceededSub, scanFailedSub, Time.every 500 (always StartScan) ]
+        , subscriptions = \_ -> Sub.batch [ scanSucceededSub, scanFailedSub ]
         }
 
 
@@ -71,9 +67,6 @@ view model =
 
 update msg model =
     case msg of
-        StartScan ->
-            ( {}, scan () )
-
         ScanSucceeded nfcTag ->
             let
                 _ =
