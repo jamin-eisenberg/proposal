@@ -5,11 +5,15 @@ import Html exposing (button, div, img, input, text)
 import Html.Attributes exposing (class, src, style, type_, value, width)
 import Html.Events exposing (onClick, onInput)
 import String
-import Time
+import Task
+import Toast
 
 
 type alias Model =
-    { step : Maybe Int, pendingPassword : String }
+    { step : Maybe Int
+    , pendingPassword : String
+    , tray : Toast.Tray String
+    }
 
 
 type Msg
@@ -17,6 +21,8 @@ type Msg
     | ScanFailed String -- reason
     | ManualOverride
     | UpdatePendingPassword String
+    | ToastMsg Toast.Msg
+    | ShowError String
 
 
 type NfcTag
@@ -77,21 +83,29 @@ main =
 
 init : a -> ( Model, Cmd msg )
 init _ =
-    ( { step = Just 0, pendingPassword = "" }, Cmd.none )
+    ( { step = Just 0, pendingPassword = "", tray = Toast.tray }, Cmd.none )
+
+
+viewToast : List (Html.Attribute Msg) -> Toast.Info String -> Html.Html Msg
+viewToast attributes toast =
+    Html.div (class "toast toast--spaced" :: attributes) [ Html.text toast.content ]
 
 
 view : Model -> Html.Html Msg
 view model =
-    case model.step |> Maybe.andThen stepNfcTag of
-        Nothing ->
-            text "You win!"
+    div []
+        [ div [ class "toast-tray" ] [ Toast.render viewToast model.tray (Toast.config ToastMsg) ]
+        , case model.step |> Maybe.andThen stepNfcTag of
+            Nothing ->
+                text "You win!"
 
-        Just step ->
-            div []
-                [ input [ type_ "number", value model.pendingPassword, onInput UpdatePendingPassword ] []
-                , button [ class "button button-primary", onClick ManualOverride ] [ text "Manual Override" ]
-                , img [ src <| "images/" ++ Debug.toString step ++ ".png", style "width" "100%" ] []
-                ]
+            Just step ->
+                div []
+                    [ input [ type_ "number", value model.pendingPassword, onInput UpdatePendingPassword ] []
+                    , button [ class "button button-primary", onClick ManualOverride ] [ text "Manual Override" ]
+                    , img [ src <| "images/" ++ Debug.toString step ++ ".png", style "width" "100%" ] []
+                    ]
+        ]
 
 
 incOrEnd : Maybe Int -> Maybe Int
@@ -105,44 +119,75 @@ incOrEnd step =
         |> Maybe.andThen (always incremented)
 
 
-update : Msg -> Model -> ( Model, Cmd msg )
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case model.step of
-        Nothing ->
-            ( model, Cmd.none )
+    case msg of
+        ShowError error ->
+            let
+                _ =
+                    Debug.log "" <| "showing error: " ++ error
 
-        Just step ->
-            case msg of
-                ScanSucceeded nfcTag ->
-                    let
-                        _ =
-                            Debug.log "" nfcTag
-                    in
-                    if
-                        stepNfcTag step
-                            == Just nfcTag
-                    then
-                        ( { model | step = incOrEnd model.step }, Cmd.none )
+                ( tray, tmesg ) =
+                    Toast.add model.tray (Toast.expireOnBlur 500000 error)
+            in
+            ( { model | tray = tray }, Cmd.map ToastMsg tmesg )
 
-                    else
-                        ( model, Cmd.none )
+        ToastMsg tmsg ->
+            let
+                ( tray, newTmesg ) =
+                    Toast.update tmsg model.tray
+            in
+            ( { model | tray = tray }, Cmd.map ToastMsg newTmesg )
 
-                ScanFailed reason ->
-                    let
-                        _ =
-                            Debug.log "" reason
-                    in
-                    ( model, Cmd.none )
+        _ ->
+            case model.step of
+                Nothing ->
+                    ( model, showError "You're done with this part of the proposal!" )
 
-                ManualOverride ->
-                    if model.pendingPassword == manualOverridePassword then
-                        ( { model | step = incOrEnd model.step, pendingPassword = "" }, Cmd.none )
+                Just step ->
+                    case msg of
+                        ScanSucceeded nfcTag ->
+                            let
+                                _ =
+                                    Debug.log "" nfcTag
+                            in
+                            if
+                                stepNfcTag step
+                                    == Just nfcTag
+                            then
+                                ( { model | step = incOrEnd model.step }, Cmd.none )
 
-                    else
-                        ( { model | pendingPassword = "" }, Cmd.none )
+                            else
+                                ( model, showError "That's not the right thing to scan. You probably already scanned this one." )
 
-                UpdatePendingPassword newPassword ->
-                    ( { model | pendingPassword = newPassword }, Cmd.none )
+                        ScanFailed reason ->
+                            let
+                                _ =
+                                    Debug.log "" reason
+                            in
+                            ( model, showError <| "The scan failed: " ++ reason )
+
+                        ManualOverride ->
+                            if model.pendingPassword == manualOverridePassword then
+                                ( { model | step = incOrEnd model.step, pendingPassword = "" }, Cmd.none )
+
+                            else
+                                ( { model | pendingPassword = "" }, showError "Wrong manual override password. It's really just meant for if the scanning isn't working." )
+
+                        UpdatePendingPassword newPassword ->
+                            ( { model | pendingPassword = newPassword }, Cmd.none )
+
+                        _ ->
+                            ( model, showError <| "Internal error! Unhandled message " ++ Debug.toString msg )
+
+
+showError : String -> Cmd Msg
+showError error =
+    let
+        _ =
+            Debug.log <| "ERROR: " ++ error
+    in
+    Task.perform (\_ -> ShowError error) (Task.succeed ())
 
 
 manualOverridePassword : String
