@@ -59,8 +59,14 @@
     <div id="elm-app-is-loaded-here"></div>
 </body>
 <script type="text/javascript">
+    const loadedModel = JSON.parse(localStorage.getItem("model") || "{ \"step\": 0 }");
     var app = Elm.Main.init({
-        node: document.getElementById('elm-app-is-loaded-here')
+        node: document.getElementById('elm-app-is-loaded-here'),
+        flags: loadedModel
+    });
+
+    app.ports.saveModel.subscribe(function (model) {
+        localStorage.setItem("model", JSON.stringify(model));
     });
 
     navigator.permissions.query({ name: "nfc" }).then(() => {

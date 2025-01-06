@@ -16,6 +16,10 @@ type alias Model =
     }
 
 
+type alias SavedModel =
+    { step : Maybe Int }
+
+
 type Msg
     = ScanSucceeded NfcTag
     | ScanFailed String -- reason
@@ -34,6 +38,9 @@ port scanSucceeded : (Int -> msg) -> Sub msg
 
 
 port scanFailed : (String -> msg) -> Sub msg
+
+
+port saveModel : SavedModel -> Cmd msg
 
 
 scanSucceededSub : Sub Msg
@@ -71,7 +78,7 @@ scanFailedSub =
     scanFailed ScanFailed
 
 
-main : Program () Model Msg
+main : Program SavedModel Model Msg
 main =
     Browser.element
         { init = init
@@ -81,9 +88,9 @@ main =
         }
 
 
-init : a -> ( Model, Cmd msg )
-init _ =
-    ( { step = Just 0, pendingPassword = "", tray = Toast.tray }, Cmd.none )
+init : SavedModel -> ( Model, Cmd msg )
+init savedModel =
+    ( { step = savedModel.step, pendingPassword = "", tray = Toast.tray }, Cmd.none )
 
 
 viewToast : List (Html.Attribute Msg) -> Toast.Info String -> Html.Html Msg
@@ -106,6 +113,11 @@ view model =
                     , img [ src <| "images/" ++ Debug.toString step ++ ".png", style "width" "100%" ] []
                     ]
         ]
+
+
+toSavedModel : Model -> SavedModel
+toSavedModel model =
+    { step = model.step }
 
 
 incOrEnd : Maybe Int -> Maybe Int
@@ -155,7 +167,11 @@ update msg model =
                                 stepNfcTag step
                                     == Just nfcTag
                             then
-                                ( { model | step = incOrEnd model.step }, Cmd.none )
+                                let
+                                    newModel =
+                                        { model | step = incOrEnd model.step }
+                                in
+                                ( newModel, saveModel (toSavedModel newModel) )
 
                             else
                                 ( model, showError "That's not the right thing to scan. You probably already scanned this one." )
@@ -169,7 +185,11 @@ update msg model =
 
                         ManualOverride ->
                             if model.pendingPassword == manualOverridePassword then
-                                ( { model | step = incOrEnd model.step, pendingPassword = "" }, Cmd.none )
+                                let
+                                    newModel =
+                                        { model | step = incOrEnd model.step, pendingPassword = "" }
+                                in
+                                ( newModel, saveModel (toSavedModel newModel) )
 
                             else
                                 ( { model | pendingPassword = "" }, showError "Wrong manual override password. It's really just meant for if the scanning isn't working." )
