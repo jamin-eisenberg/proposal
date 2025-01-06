@@ -73,9 +73,25 @@
                     app.ports.scanFailed.send("Cannot read data from the NFC tag. Try again?");
                 };
                 ndef.onreading = (event) => {
-                    app.ports.scanSucceeded.send(0);
-                    console.log("NDEF message read.");
-                    console.log(event.message.records);
+                    try {
+                        const records = event.message.records;
+                        const record = records[0];
+
+                        if (record.recordType === "text") {
+                            const textDecoder = new TextDecoder(record.encoding);
+                            console.log(`Text: ${textDecoder.decode(record.data)} (${record.lang})`);
+                            const recordStrVal = textDecoder.decode(record.data);
+                            const recordIntVal = parseInt(recordStrVal);
+
+                            app.ports.scanSucceeded.send(recordIntVal);
+                            console.log("NDEF message read.");
+                            console.log(event.message.records);
+                        } else {
+                            app.ports.scanFailed.send("NFC tag data not formatted as expected.");
+                        }
+                    } catch {
+                        app.ports.scanFailed.send("NFC tag data not formatted as expected.");
+                    }
                 };
             })
             .catch((error) => {
