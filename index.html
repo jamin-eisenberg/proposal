@@ -59,7 +59,7 @@
 <body>
     <div id="elm-app-is-loaded-here"></div>
 </body>
-<script type="text/javascript">
+<script type="module">
     const loadedModel = JSON.parse(localStorage.getItem("model") || "{ \"step\": 1 }");
     var app = Elm.Main.init({
         node: document.getElementById('elm-app-is-loaded-here'),
