@@ -2,15 +2,16 @@ port module Main exposing (main)
 
 import Browser
 import Html exposing (button, div, img, input, text)
-import Html.Attributes exposing (class, src, style, type_, value, width)
+import Html.Attributes exposing (class, src, style, type_, value)
 import Html.Events exposing (onClick, onInput)
+import List.Extra
 import String
 import Task
 import Toast
 
 
 type alias Model =
-    { step : Maybe Int
+    { step : Maybe OneIndexed
     , pendingPassword : String
     , tray : Toast.Tray String
     }
@@ -18,6 +19,10 @@ type alias Model =
 
 type alias SavedModel =
     { step : Maybe Int }
+
+
+type OneIndexed
+    = OneIndexed Int
 
 
 type Msg
@@ -30,8 +35,15 @@ type Msg
 
 
 type NfcTag
-    = Bench
-    | SteeringWheel
+    = SteeringWheel
+    | BrickBench
+    | Tables
+    | Classroom
+    | Bench
+    | Mints
+    | OutWindow
+    | Water
+    | RingBox
 
 
 port scanSucceeded : (Int -> msg) -> Sub msg
@@ -51,7 +63,7 @@ scanSucceededSub =
                 _ =
                     Debug.log <| "scan retrieved " ++ String.fromInt id
             in
-            case stepNfcTag id of
+            case stepNfcTag (OneIndexed id) of
                 Just tag ->
                     ScanSucceeded tag
 
@@ -60,17 +72,19 @@ scanSucceededSub =
         )
 
 
-stepNfcTag : Int -> Maybe NfcTag
-stepNfcTag step =
-    case step of
-        0 ->
-            Just Bench
-
-        1 ->
-            Just SteeringWheel
-
-        _ ->
-            Nothing
+stepNfcTag : OneIndexed -> Maybe NfcTag
+stepNfcTag (OneIndexed step) =
+    List.Extra.getAt (step - 1)
+        [ SteeringWheel
+        , BrickBench
+        , Tables
+        , Classroom
+        , Bench
+        , Mints
+        , OutWindow
+        , Water
+        , RingBox
+        ]
 
 
 scanFailedSub : Sub Msg
@@ -90,7 +104,7 @@ main =
 
 init : SavedModel -> ( Model, Cmd msg )
 init savedModel =
-    ( { step = savedModel.step, pendingPassword = "", tray = Toast.tray }, Cmd.none )
+    ( { step = Maybe.map OneIndexed savedModel.step, pendingPassword = "", tray = Toast.tray }, Cmd.none )
 
 
 viewToast : List (Html.Attribute Msg) -> Toast.Info String -> Html.Html Msg
@@ -104,27 +118,33 @@ view model =
         [ div [ class "toast-tray" ] [ Toast.render viewToast model.tray (Toast.config ToastMsg) ]
         , case model.step |> Maybe.andThen stepNfcTag of
             Nothing ->
-                text "You win!"
+                div []
+                    [ Html.h1 [] [ text "❤️" ], text "(this part is done)" ]
 
             Just step ->
                 div []
                     [ input [ type_ "number", value model.pendingPassword, onInput UpdatePendingPassword ] []
                     , button [ class "button button-primary", onClick ManualOverride ] [ text "Manual Override" ]
-                    , img [ src <| "images/" ++ Debug.toString step ++ ".png", style "width" "100%" ] []
+                    , img [ src <| "images/" ++ Debug.toString step ++ ".jpg", style "width" "100%" ] []
                     ]
         ]
 
 
 toSavedModel : Model -> SavedModel
 toSavedModel model =
-    { step = model.step }
+    case model.step of
+        Just (OneIndexed step) ->
+            { step = Just step }
+
+        Nothing ->
+            { step = Nothing }
 
 
-incOrEnd : Maybe Int -> Maybe Int
+incOrEnd : Maybe OneIndexed -> Maybe OneIndexed
 incOrEnd step =
     let
         incremented =
-            Maybe.map ((+) 1) step
+            Maybe.map (\(OneIndexed i) -> OneIndexed (i + 1)) step
     in
     incremented
         |> Maybe.andThen stepNfcTag
@@ -213,3 +233,7 @@ showError error =
 manualOverridePassword : String
 manualOverridePassword =
     "6372"
+
+
+
+-- tag 7 is in apt 58
