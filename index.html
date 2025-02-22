@@ -70,42 +70,42 @@
         localStorage.setItem("model", JSON.stringify(model));
     });
 
-    navigator.permissions.query({ name: "nfc" }).then(() => {
-        const ndef = new NDEFReader();
-        ndef
-            .scan()
-            .then(() => {
-                console.log("Scan started successfully.");
-                ndef.onreadingerror = (event) => {
-                    app.ports.scanFailed.send("Cannot read data from the NFC tag. Try again?");
-                };
-                ndef.onreading = (event) => {
-                    try {
-                        const records = event.message.records;
-                        const record = records[0];
+    await navigator.permissions.query({ name: "nfc" });
 
-                        if (record.recordType === "text") {
-                            const textDecoder = new TextDecoder(record.encoding);
-                            console.log(`Text: ${textDecoder.decode(record.data)} (${record.lang})`);
-                            const recordStrVal = textDecoder.decode(record.data);
-                            const recordIntVal = parseInt(recordStrVal);
+    const ndef = new NDEFReader();
+    ndef
+        .scan()
+        .then(() => {
+            console.log("Scan started successfully.");
+            ndef.onreadingerror = (event) => {
+                app.ports.scanFailed.send("Cannot read data from the NFC tag. Try again?");
+            };
+            ndef.onreading = (event) => {
+                try {
+                    const records = event.message.records;
+                    const record = records[0];
 
-                            app.ports.scanSucceeded.send(recordIntVal);
-                            console.log("NDEF message read.");
-                            console.log(event.message.records);
-                        } else {
-                            app.ports.scanFailed.send("NFC tag data not formatted as expected.");
-                        }
-                    } catch {
+                    if (record.recordType === "text") {
+                        const textDecoder = new TextDecoder(record.encoding);
+                        console.log(`Text: ${textDecoder.decode(record.data)} (${record.lang})`);
+                        const recordStrVal = textDecoder.decode(record.data);
+                        const recordIntVal = parseInt(recordStrVal);
+
+                        app.ports.scanSucceeded.send(recordIntVal);
+                        console.log("NDEF message read.");
+                        console.log(event.message.records);
+                    } else {
                         app.ports.scanFailed.send("NFC tag data not formatted as expected.");
                     }
-                };
-            })
-            .catch((error) => {
-                console.log(`Error! Scan failed to start: ${error}.`);
-                app.ports.scanFailed.send(`Scan failed to start: ${error}.`);
-            });
-    });
+                } catch {
+                    app.ports.scanFailed.send("NFC tag data not formatted as expected.");
+                }
+            };
+        })
+        .catch((error) => {
+            console.log(`Error! Scan failed to start: ${error}.`);
+            app.ports.scanFailed.send(`Scan failed to start: ${error}.`);
+        });
 
 </script>
 <script src=" https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
